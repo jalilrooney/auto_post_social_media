@@ -1049,44 +1049,55 @@ class Ui_MainWindow(QWidget):
 
     def get_first_post(self):
         #Get the URL
-        url = self.get_selected_json_url()
+        #url = self.get_selected_json_url()
         #Send a request to get the file
-        response = requests.get(url, timeout=120)
+        #response = requests.get(url, timeout=120)
         #Get the first event
-        event = [event for event in response.json()][0]
-        #Get the attributes checkboxes
-        attributes_checkboxes = self.get_social_media_checkboxes()
-        #The custom Text
-        social_media_custom_text = self.get_social_media_custom_text()
+        event = self.get_json_events_from_file()[0]["event"]
+        # event = [event for event in response.json()][0]
         #Put the post in the form of a String
-        post = social_media_custom_text + "\n"
-        if attributes_checkboxes["EventName"]:
-            post += "Event Name: " + event["eventName"] + "\n"
-        if attributes_checkboxes["StartTime"]:
-            post += "Start Time: " + event["startTime"] + "\n"
-        if attributes_checkboxes["ShortDescription"]:
-            post += "Short Description: " + event["shortDescription"] + "\n"
-        if attributes_checkboxes["Description"]:
-            post += "Description: " + event["description"] + "\n"
-        if attributes_checkboxes["CreationDate"]:
-            post += "Creation Date: " + event["creationDate"] + "\n"
-        if attributes_checkboxes["PurchasePageLink"]:
-            post += "Event Name: " + event["eventName"] + "\n"
-        if attributes_checkboxes["SpeakersName"]:
-            post += "Speakers Name: " + event.speakers.firstName + " " + event.speakers.lastName+ "\n"
-        if attributes_checkboxes["SpeakersBio"]:
-            post += "Speakers Bio: " + event.speakers.bio + "\n"
-        if attributes_checkboxes["Duration"]:
-            post += "Duration: "+str(event["duration"])
-        return post
+        facebook_linkedin_dict = {
+            "custom_text": self.get_social_media_custom_text(),
+            "start_time": datetime.strptime(event["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "event_name": clean_text(event['eventName'].replace('\n', '. ')),
+            "speaker": "Presented by {}".format([clean_text(i["name"]) for i in event["speakers"]]),
+            "purchase_link": event["purchasePageLink"],
+            "description": clean_text(event["description"])
+        }
+        twitter_dict = {
+            "custom_text": self.get_social_media_custom_text(),
+            "start_time": datetime.strptime(event["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "event_name": clean_text(event['eventName'].replace('\n', '. ')),
+            "purchase_link": event["purchasePageLink"]
+        }
+        post = ""
+        tpost = ""
+        for item in facebook_linkedin_dict:
+            post += facebook_linkedin_dict[item] + '\n'
+        for item in twitter_dict:
+            tpost += twitter_dict[item] + '\n'
+        return post, tpost
+
 
 
     def social_media_preview(self):
-        first_post = self.get_first_post()
+        fb_post, twitter_post = self.get_first_post()
+        where_to_post = self.get_post_in_social_media()
         preview_window = QDialog()
-        t = QLabel(first_post, preview_window)
+        vb = QVBoxLayout()
+        if where_to_post["facebook"] or where_to_post["linkedin"]:
+            fb_post = "Facebook/LinkedIn: \n" + fb_post + "\n----------------\n"
+            fb_label = QLabel(fb_post, preview_window)
+            vb.addWidget(fb_label)
+        if where_to_post["twitter"]:
+            twitter_post = "Twitter: \n" + twitter_post
+            t_label = QLabel(twitter_post, preview_window)
+            vb.addWidget(t_label)
         b1 = QPushButton("OK", preview_window)
-        b1.move(50, 50)
+        vb.addWidget(b1)
+        preview_window.setLayout(vb)
         preview_window.setWindowTitle("Preview")
         preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
         preview_window.exec_()
