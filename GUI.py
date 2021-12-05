@@ -22,7 +22,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from PyQt5.QtWidgets import *
 
-
 class Ui_MainWindow(QWidget):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -1048,6 +1047,50 @@ class Ui_MainWindow(QWidget):
         if events_to_post:
             self.populate_table(self.pending_posts_table, events_to_post)
 
+    def get_first_post(self):
+        #Get the URL
+        url = self.get_selected_json_url()
+        #Send a request to get the file
+        response = requests.get(url, timeout=120)
+        #Get the first event
+        event = [event for event in response.json()][0]
+        #Get the attributes checkboxes
+        attributes_checkboxes = self.get_social_media_checkboxes()
+        #The custom Text
+        social_media_custom_text = self.get_social_media_custom_text()
+        #Put the post in the form of a String
+        post = social_media_custom_text + "\n"
+        if attributes_checkboxes["EventName"]:
+            post += "Event Name: " + event["eventName"] + "\n"
+        if attributes_checkboxes["StartTime"]:
+            post += "Start Time: " + event["startTime"] + "\n"
+        if attributes_checkboxes["ShortDescription"]:
+            post += "Short Description: " + event["shortDescription"] + "\n"
+        if attributes_checkboxes["Description"]:
+            post += "Description: " + event["description"] + "\n"
+        if attributes_checkboxes["CreationDate"]:
+            post += "Creation Date: " + event["creationDate"] + "\n"
+        if attributes_checkboxes["PurchasePageLink"]:
+            post += "Event Name: " + event["eventName"] + "\n"
+        if attributes_checkboxes["SpeakersName"]:
+            post += "Speakers Name: " + event.speakers.firstName + " " + event.speakers.lastName+ "\n"
+        if attributes_checkboxes["SpeakersBio"]:
+            post += "Speakers Bio: " + event.speakers.bio + "\n"
+        if attributes_checkboxes["Duration"]:
+            post += "Duration: "+str(event["duration"])
+        return post
+
+
+    def social_media_preview(self):
+        first_post = self.get_first_post()
+        preview_window = QDialog()
+        t = QLabel(first_post, preview_window)
+        b1 = QPushButton("OK", preview_window)
+        b1.move(50, 50)
+        preview_window.setWindowTitle("Preview")
+        preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
+        preview_window.exec_()
+
     def get_google_docs_custom_text(self):
         return self.google_docs_custom_text_edit.toPlainText()
 
@@ -1120,6 +1163,8 @@ class Ui_MainWindow(QWidget):
         self.google_docs_button_box.button(QtWidgets.QDialogButtonBox.Ok).setText("Start")
         social_media_save_button = self.social_media_button_box.button(QDialogButtonBox.Save)
         social_media_cancel_button = self.social_media_button_box.button(QDialogButtonBox.Cancel)
+        social_media_preview_button = self.social_media_button_box.button(QDialogButtonBox.Apply)
+        social_media_preview_button.clicked.connect(self.social_media_preview)
         social_media_cancel_button.clicked.connect(lambda: QCoreApplication.quit())
         social_media_save_button.clicked.connect(self.social_media_save)
         google_docs_start_button = self.google_docs_button_box.button(QDialogButtonBox.Ok)
