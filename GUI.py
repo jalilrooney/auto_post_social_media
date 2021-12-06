@@ -974,6 +974,11 @@ class Ui_MainWindow(QWidget):
             "linkedin": self.post_in_linkedin_checkbox.isChecked()
         }
 
+    def set_post_in_social_media(self):
+        self.post_in_facebook_checkbox.setChecked(self.configs["post_in"]["facebook"])
+        self.post_in_twitter_checkbox.setChecked(self.configs["post_in"]["twitter"])
+        self.post_in_linkedin_checkbox.setChecked(self.configs["post_in"]["linkedin"])
+
     def update_events_to_post_file(self, events_to_add):
         previous_events = [event["event"] for event in (self.get_json_events_from_file() or [])] or []
         events_to_write = self.get_json_events_from_file() or []
@@ -989,10 +994,10 @@ class Ui_MainWindow(QWidget):
         return [
             event
             for event in response.json()
-            # if (event['eventType'] in ("Simulive Replay", "Webinar")) and
-            #    (self.get_social_media_date_ranges()[0] <= datetime.strptime(event['startTime'], "%Y-%m-%dT%H:%M:%SZ") <=
-            #     self.get_social_media_date_ranges()[1])
-            if (event['eventType'] in ("Simulive Replay", "Webinar"))
+            if (event['eventType'] in ("Simulive Replay", "Webinar")) and
+               (self.get_social_media_date_ranges()[0] <= datetime.strptime(event['startTime'], "%Y-%m-%dT%H:%M:%SZ") <=
+                self.get_social_media_date_ranges()[1])
+            #if (event['eventType'] in ("Simulive Replay", "Webinar"))
         ]
 
     def get_json_events_from_file(self):
@@ -1028,11 +1033,71 @@ class Ui_MainWindow(QWidget):
             table.setItem(index, 0, QtWidgets.QTableWidgetItem(event["posting_date"]))
             table.setItem(index, 1, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
             table.setItem(index, 2, QtWidgets.QTableWidgetItem(event["event"]["eventName"]))
-            table.setItem(index, 3, QtWidgets.QTableWidgetItem('Preview'))
+            b = QPushButton('Preview', table)
+            b.clicked.connect(self.preview_event)
+            table.setCellWidget(index, 3, b)
             table.setItem(index, 4, QtWidgets.QTableWidgetItem(event["post_destination"].strip("/").replace("//", "/")))
         table.scrollToBottom()
         time.sleep(0.2)
         ui.repaint()
+
+    def populate_google_docs_calendar_table(self, table, events):
+        table.setRowCount(len(events))
+        for index, event in enumerate(events):
+            table.setItem(index, 0, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["eventTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
+            table.setItem(index, 1, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["eventName"])))
+            b = QPushButton('Preview', table)
+            b.clicked.connect(self.preview_event)
+            table.setCellWidget(index, 2, b)
+            table.setItem(index, 4, QtWidgets.QTableWidgetItem("/"))
+        table.scrollToBottom()
+        time.sleep(0.2)
+        ui.repaint()
+
+    def get_posts(self, event):
+        facebook_linkedin_dict = {
+            "custom_text": self.get_social_media_custom_text(),
+            "start_time": datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "event_name": clean_text(event["event"]['eventName'].replace('\n', '. ')),
+            "speaker": "Presented by {}".format([clean_text(i["name"])+"," for i in event["event"]["speakers"]]),
+            "purchase_link": event["event"]["purchasePageLink"],
+            "description": clean_text(event["event"]["description"])
+        }
+        twitter_dict = {
+            "custom_text": self.get_social_media_custom_text(),
+            "start_time": datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "event_name": clean_text(event["event"]['eventName'].replace('\n', '. ')),
+            "purchase_link": event["event"]["purchasePageLink"]
+        }
+        post = ""
+        tpost = ""
+        for item in facebook_linkedin_dict:
+            post += facebook_linkedin_dict[item] + '\n'
+        for item in twitter_dict:
+            tpost += twitter_dict[item] + '\n'
+        return post, tpost
+
+    def preview_event(self, event):
+        fb_post, twitter_post = self.get_posts(event)
+        where_to_post = self.get_post_in_social_media()
+        preview_window = QDialog()
+        vb = QVBoxLayout()
+        if where_to_post["facebook"] or where_to_post["linkedin"]:
+            fb_post = "Facebook/LinkedIn: \n" + fb_post + "\n----------------\n"
+            fb_label = QLabel(fb_post, preview_window)
+            vb.addWidget(fb_label)
+        if where_to_post["twitter"]:
+            twitter_post = "Twitter: \n" + twitter_post
+            t_label = QLabel(twitter_post, preview_window)
+            vb.addWidget(t_label)
+        b1 = QPushButton("OK", preview_window)
+        vb.addWidget(b1)
+        preview_window.setLayout(vb)
+        preview_window.setWindowTitle("Preview")
+        preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
+        preview_window.exec_()
 
     def social_media_save(self):
         self.configs["post_in"] = self.get_post_in_social_media()
@@ -1042,10 +1107,13 @@ class Ui_MainWindow(QWidget):
         self.configs["social_media_checkboxes"] = self.get_social_media_checkboxes()
         self.configs["social_media_custom_text"] = self.get_social_media_custom_text()
         self.update_configs_file()
+        self.set_range_dates()
         events_to_post = self.get_timed_events_to_post()
         pprint(events_to_post)
         if events_to_post:
             self.populate_table(self.pending_posts_table, events_to_post)
+            self.populate_google_docs_calendar_table(self.google_docs_posted_feeds_table, events_to_post)
+            self.populate_google_docs_calendar_table(self.google_cal_posted_feeds_table, events_to_post)
 
     def get_first_post(self):
         #Get the URL
@@ -1079,8 +1147,6 @@ class Ui_MainWindow(QWidget):
         for item in twitter_dict:
             tpost += twitter_dict[item] + '\n'
         return post, tpost
-
-
 
     def social_media_preview(self):
         fb_post, twitter_post = self.get_first_post()
@@ -1153,12 +1219,40 @@ class Ui_MainWindow(QWidget):
             'json_creds_file_location': self.google_creds_file_location
         }
 
+    def set_accounts_tab(self):
+        self.get_configs()
+        self.facebook_email_text_edit.setText(self.configs["facebook_email"])
+        self.facebook_password_line_edit.setText(self.configs["facebook_password"])
+        self.facebook_posting_page_text_edit.setText(self.configs["facebook_posting_page"])
+        self.twitter_email_text_edit.setText(self.configs["twitter_email"])
+        self.twitter_password_line_edit.setText(self.configs["twitter_password"])
+        self.linkedin_email_text_edit.setText(self.configs["linkedin_email"])
+        self.linkedin_password_line_edit.setText(self.configs["linkedin_password"])
+        self.google_email_text_edit.setText(self.configs["google_email_address"])
+
+    def set_range_dates(self):
+        begin, end = self.get_social_media_date_ranges()
+        self.google_docs_date_range_start.setDateTime(begin)
+        self.google_docs_date_range_end.setDateTime(end)
+
     def load_tab(self, tab_index):
         if tab_index == 0:
             self.set_social_media_checkboxes()
             self.set_social_media_custom_text()
+            self.set_post_in_social_media()
         elif tab_index == 1:
             self.set_google_docs_custom_text()
+        elif tab_index == 3:
+            self.set_accounts_tab()
+            print(self.get_social_media_date_ranges()[0])
+            print(datetime.strptime("2021-12-31T18:00:00Z", "%Y-%m-%dT%H:%M:%SZ"))
+            print(self.get_social_media_date_ranges()[0] <= datetime.strptime("2021-12-31T18:00:00Z", "%Y-%m-%dT%H:%M:%SZ") <= self.get_social_media_date_ranges()[1])
+        else:
+            events_to_post = self.get_timed_events_to_post()
+            pprint(events_to_post)
+            if events_to_post:
+                self.populate_table(self.pending_posts_table, events_to_post)
+
 
     def retranslateUi(self, MainWindow):
         self.get_configs()
@@ -1211,13 +1305,13 @@ class Ui_MainWindow(QWidget):
         self.label_8.setText(_translate("MainWindow", "Post In"))
         self.post_in_facebook_checkbox.setText(_translate("MainWindow", "Facebook"))
         self.post_in_twitter_checkbox.setText(_translate("MainWindow", "Twitter"))
-        self.post_in_linkedin_checkbox.setText(_translate("MainWindow", "LindkedIn"))
+        self.post_in_linkedin_checkbox.setText(_translate("MainWindow", "LinkedIn"))
         self.purchase_page_link_checkbox.setText(_translate("MainWindow", "Include"))
         self.speakers_name_checkbox.setText(_translate("MainWindow", "Include"))
         self.speakers_bio_checkbox.setText(_translate("MainWindow", "Include"))
         self.label_9.setText(_translate("MainWindow", "EventName"))
         self.label_10.setText(_translate("MainWindow", "StartTime"))
-        self.label_12.setText(_translate("MainWindow", "ShrortDescription"))
+        self.label_12.setText(_translate("MainWindow", "ShortDescription"))
         self.label_13.setText(_translate("MainWindow", "Description"))
         self.label_17.setText(_translate("MainWindow", "CreationDate"))
         self.label_15.setText(_translate("MainWindow", "PurchasePageLink"))

@@ -13,7 +13,7 @@
   ],
   "post_in": {
     "facebook": true,
-    "twitter": false,
+    "twitter": true,
     "linkedin": true
   },
   "post_before": {
@@ -21,13 +21,13 @@
     "weeks": 0,
     "days": 0
   },
-  "social_media_start_date_calendar": "2013-12-05 23:39:50.327000",
-  "social_media_end_date_calendar": "2021-12-02 23:39:50.327000",
+  "social_media_start_date_calendar": "2021-12-06 16:12:34.770000",
+  "social_media_end_date_calendar": "2021-12-06 16:12:34.770000",
   "social_media_checkboxes": {
-    "EventName": false,
+    "EventName": true,
     "StartTime": true,
-    "ShortDescription": false,
-    "Description": true,
+    "ShortDescription": true,
+    "Description": false,
     "CreationDate": true,
     "PurchasePageLink": false,
     "SpeakersName": true,
