@@ -1034,7 +1034,7 @@ class Ui_MainWindow(QWidget):
             table.setItem(index, 1, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
             table.setItem(index, 2, QtWidgets.QTableWidgetItem(event["event"]["eventName"]))
             b = QPushButton('Preview', table)
-            b.clicked.connect(self.preview_event)
+            b.clicked.connect(lambda state, x=event: self.preview_event(x))
             table.setCellWidget(index, 3, b)
             table.setItem(index, 4, QtWidgets.QTableWidgetItem(event["post_destination"].strip("/").replace("//", "/")))
         table.scrollToBottom()
@@ -1044,10 +1044,11 @@ class Ui_MainWindow(QWidget):
     def populate_google_docs_calendar_table(self, table, events):
         table.setRowCount(len(events))
         for index, event in enumerate(events):
-            table.setItem(index, 0, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["eventTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
-            table.setItem(index, 1, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["eventName"])))
+            print(event["event"]["eventName"])
+            table.setItem(index, 0, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
+            table.setItem(index, 1, QtWidgets.QTableWidgetItem(event["event"]["eventName"]))
             b = QPushButton('Preview', table)
-            b.clicked.connect(self.preview_event)
+            b.clicked.connect(lambda state, x=event: self.preview_event(x))
             table.setCellWidget(index, 2, b)
             table.setItem(index, 4, QtWidgets.QTableWidgetItem("/"))
         table.scrollToBottom()
@@ -1080,6 +1081,7 @@ class Ui_MainWindow(QWidget):
         return post, tpost
 
     def preview_event(self, event):
+        print(event["event"]["eventName"])
         fb_post, twitter_post = self.get_posts(event)
         where_to_post = self.get_post_in_social_media()
         preview_window = QDialog()
@@ -1122,6 +1124,7 @@ class Ui_MainWindow(QWidget):
         #response = requests.get(url, timeout=120)
         #Get the first event
         event = self.get_json_events_from_file()[0]["event"]
+        print(event)
         # event = [event for event in response.json()][0]
         #Put the post in the form of a String
         facebook_linkedin_dict = {
