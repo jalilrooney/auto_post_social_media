@@ -9,7 +9,9 @@
     "kiki",
     "lolo",
     "windows test",
-    "https://clewebinars.ce21.com/json/products?showBio=true"
+    "https://clewebinars.ce21.com/json/products?showBio=true",
+    "jaja",
+    "fifi"
   ],
   "post_in": {
     "facebook": true,
@@ -21,8 +23,8 @@
     "weeks": 0,
     "days": 0
   },
-  "social_media_start_date_calendar": "2021-12-06 16:12:34.770000",
-  "social_media_end_date_calendar": "2021-12-06 16:12:34.770000",
+  "social_media_start_date_calendar": "2021-06-30 16:12:34.770000",
+  "social_media_end_date_calendar": "2021-12-10 16:12:34.770000",
   "social_media_checkboxes": {
     "EventName": true,
     "StartTime": true,
@@ -35,6 +37,7 @@
     "Duration": false
   },
   "social_media_custom_text": "custom text",
+  "google_docs_custom_text": "custom text",
   "facebook_email": "gdfgsd",
   "facebook_password": "hdsfhsd",
   "facebook_posting_page": "dsfhsdfh",
@@ -43,5 +46,7 @@
   "linkedin_email": "dfghdfjfh",
   "linkedin_password": "fgjkgjkh",
   "google_email_address": "khgjkghj",
-  "json_creds_file_location": "/Users/macbook/PycharmProjects/auto_post_social_media/config.json"
+  "json_creds_file_location": "/Users/macbook/PycharmProjects/auto_post_social_media/config.json",
+  "google_docs_start_date_calendar": "2021-06-30 16:12:34.770000",
+  "google_docs_end_date_calendar": "2021-12-10 16:12:34.770000"
 }

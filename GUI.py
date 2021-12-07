@@ -75,11 +75,6 @@ class Ui_MainWindow(QWidget):
         font.setPointSize(10)
         self.json_source_url_combobox.setFont(font)
         self.json_source_url_combobox.setObjectName("json_source_url_combobox")
-        self.json_source_url_combobox.addItem("")
-        self.json_source_url_combobox.addItem("")
-        self.json_source_url_combobox.addItem("")
-        self.json_source_url_combobox.addItem("")
-        self.json_source_url_combobox.addItem("")
         self.gridLayout.addWidget(self.json_source_url_combobox, 0, 0, 1, 1)
         self.new_json_url_button = QtWidgets.QPushButton(self.frame_30)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
@@ -900,10 +895,10 @@ class Ui_MainWindow(QWidget):
     def add_new_json_url(self):
         text, ok = QInputDialog.getText(self, 'New Json URL', 'Please enter the new JSON URL')
         if ok:
-            if str(text):
+            if str(text) and text not in self.configs["json_urls"]:
                 self.configs["json_urls"].append(str(text))
                 self.update_configs_file()
-                self.update_json_source_urls()
+                self.json_source_url_combobox.addItem(text)
             return str(text).replace('\n', '')
         else:
             return None
@@ -918,12 +913,6 @@ class Ui_MainWindow(QWidget):
 
     def get_selected_json_url(self):
         return str(self.json_source_url_combobox.currentText())
-
-    def update_json_source_urls(self):
-        for i, url in enumerate(self.configs["json_urls"]):
-            print(i, url)
-            self.json_source_url_combobox.setItemText(i, url)
-        self.json_source_url_combobox.setMaxVisibleItems(10)
 
     def get_social_media_custom_text(self):
         return self.social_media_custom_text_edit.toPlainText()
@@ -1000,6 +989,18 @@ class Ui_MainWindow(QWidget):
             #if (event['eventType'] in ("Simulive Replay", "Webinar"))
         ]
 
+    def get_json_events_from_url_docs(self):
+        url = self.get_selected_json_url()
+        response = requests.get(url, timeout=120)
+        return [
+            event
+            for event in response.json()
+            if (event['eventType'] in ("Simulive Replay", "Webinar")) and
+               (self.get_google_docs_date_ranges()[0] <= datetime.strptime(event['startTime'], "%Y-%m-%dT%H:%M:%SZ") <=
+                self.get_google_docs_date_ranges()[1])
+            #if (event['eventType'] in ("Simulive Replay", "Webinar"))
+        ]
+
     def get_json_events_from_file(self):
         if os.path.exists(os.path.join(os.getcwd(), 'events_to_post.json')):
             with open('events_to_post.json', 'r') as json_events_file:
@@ -1041,16 +1042,30 @@ class Ui_MainWindow(QWidget):
         time.sleep(0.2)
         ui.repaint()
 
-    def populate_google_docs_calendar_table(self, table, events):
+    def populate_google_docs_table(self, table, events):
         table.setRowCount(len(events))
         for index, event in enumerate(events):
             print(event["event"]["eventName"])
             table.setItem(index, 0, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
             table.setItem(index, 1, QtWidgets.QTableWidgetItem(event["event"]["eventName"]))
             b = QPushButton('Preview', table)
-            b.clicked.connect(lambda state, x=event: self.preview_event(x))
+            b.clicked.connect(lambda state, x=event: self.preview_event_docs(x))
             table.setCellWidget(index, 2, b)
-            table.setItem(index, 4, QtWidgets.QTableWidgetItem("/"))
+            table.setItem(index, 3, QtWidgets.QTableWidgetItem("/"))
+        table.scrollToBottom()
+        time.sleep(0.2)
+        ui.repaint()
+
+    def populate_google_calendar_table(self, table, events):
+        table.setRowCount(len(events))
+        for index, event in enumerate(events):
+            print(event["event"]["duration"])
+            table.setItem(index, 0, QtWidgets.QTableWidgetItem(datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime('%m/%d/%Y %H:%M')))
+            table.setItem(index, 1, QtWidgets.QTableWidgetItem(event["event"]["eventName"]))
+            b = QPushButton('Preview', table)
+            b.clicked.connect(lambda state, x=event: self.preview_event_cal(x))
+            table.setCellWidget(index, 2, b)
+            table.setItem(index, 3, QtWidgets.QTableWidgetItem("/"))
         table.scrollToBottom()
         time.sleep(0.2)
         ui.repaint()
@@ -1061,7 +1076,7 @@ class Ui_MainWindow(QWidget):
             "start_time": datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
                 '%B %d, %Y %I:%M %p'),
             "event_name": clean_text(event["event"]['eventName'].replace('\n', '. ')),
-            "speaker": "Presented by {}".format([clean_text(i["name"])+"," for i in event["event"]["speakers"]]),
+            "speaker": "Presented by {}".format([clean_text(i["name"]) for i in event["event"]["speakers"]]),
             "purchase_link": event["event"]["purchasePageLink"],
             "description": clean_text(event["event"]["description"])
         }
@@ -1085,17 +1100,70 @@ class Ui_MainWindow(QWidget):
         fb_post, twitter_post = self.get_posts(event)
         where_to_post = self.get_post_in_social_media()
         preview_window = QDialog()
+        preview_window.setMinimumSize(500, 450)
         vb = QVBoxLayout()
         if where_to_post["facebook"] or where_to_post["linkedin"]:
             fb_post = "Facebook/LinkedIn: \n" + fb_post + "\n----------------\n"
             fb_label = QLabel(fb_post, preview_window)
+            fb_label.setWordWrap(True)
             vb.addWidget(fb_label)
         if where_to_post["twitter"]:
             twitter_post = "Twitter: \n" + twitter_post
             t_label = QLabel(twitter_post, preview_window)
+            t_label.setWordWrap(True)
             vb.addWidget(t_label)
         b1 = QPushButton("OK", preview_window)
         vb.addWidget(b1)
+        preview_window.setLayout(vb)
+        preview_window.setWindowTitle("Preview")
+        preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
+        preview_window.exec_()
+
+    def preview_event_docs(self, event):
+        google_docs_dict = {
+            "start_time": datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "event_name": clean_text(event["event"]['eventName'].replace('\n', '. ')),
+            "speaker": "Presented by {} \n".format([clean_text(i["name"]) for i in event["event"]["speakers"]]),
+            "description": clean_text(event["event"]["description"])
+        }
+        gpost = ""
+        for item in google_docs_dict:
+            gpost += google_docs_dict[item] + '\n'
+        preview_window = QDialog()
+        #preview_window.setMinimumSize(500, 450)
+        vb = QVBoxLayout()
+        gpost = "Google Docs: \n" + gpost
+        glabel = QLabel(gpost, preview_window)
+        glabel.setWordWrap(True)
+        vb.addWidget(glabel)
+        preview_window.setLayout(vb)
+        preview_window.setWindowTitle("Preview")
+        preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
+        preview_window.exec_()
+
+    def preview_event_cal(self, event):
+        google_cal_dict = {
+            "start_time": datetime.strptime(event["event"]["startTime"], "%Y-%m-%dT%H:%M:%SZ").strftime(
+                '%B %d, %Y %I:%M %p'),
+            "duration": "Duration: " + event["event"]["duration"],
+            "event_name": clean_text(event["event"]['eventName'].replace('\n', '. ')),
+            "description": '\n'+clean_text(event["event"]["description"]),
+            "speaker": "\nPresented by {}".format([clean_text(i["name"]) for i in event["event"]["speakers"]]),
+            "pricing_name": event["event"]["pricing"][0]["name"],
+            "purchasePageLink": event["event"]["purchasePageLink"]
+
+        }
+        gpost = ""
+        for item in google_cal_dict:
+            gpost += google_cal_dict[item] + '\n'
+        preview_window = QDialog()
+        #preview_window.setMinimumSize(500, 450)
+        vb = QVBoxLayout()
+        gpost = "Google Calendar: \n" + gpost
+        glabel = QLabel(gpost, preview_window)
+        glabel.setWordWrap(True)
+        vb.addWidget(glabel)
         preview_window.setLayout(vb)
         preview_window.setWindowTitle("Preview")
         preview_window.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -1155,14 +1223,17 @@ class Ui_MainWindow(QWidget):
         fb_post, twitter_post = self.get_first_post()
         where_to_post = self.get_post_in_social_media()
         preview_window = QDialog()
+        preview_window.setMinimumSize(500,450)
         vb = QVBoxLayout()
         if where_to_post["facebook"] or where_to_post["linkedin"]:
             fb_post = "Facebook/LinkedIn: \n" + fb_post + "\n----------------\n"
             fb_label = QLabel(fb_post, preview_window)
+            fb_label.setWordWrap(True)
             vb.addWidget(fb_label)
         if where_to_post["twitter"]:
             twitter_post = "Twitter: \n" + twitter_post
             t_label = QLabel(twitter_post, preview_window)
+            t_label.setWordWrap(True)
             vb.addWidget(t_label)
         b1 = QPushButton("OK", preview_window)
         vb.addWidget(b1)
@@ -1181,16 +1252,28 @@ class Ui_MainWindow(QWidget):
     def open_google_docs_in_driver(self):
         doc_id = create_google_doc('/Users/macbook/Downloads/ss.json', 'benharkatdjalil@gmail.com')
         open_google_doc_on_driver(doc_id)
+        self.fileId = doc_id
+        self.postURL = f"https://docs.google.com/document/d/{doc_id}/edit"
+
+    def get_google_docs_date_ranges(self):
+        return self.google_docs_date_range_start.dateTime().toPyDateTime(), \
+               self.google_docs_date_range_end.dateTime().toPyDateTime()
 
     def get_google_docs_date_ranges(self):
         return self.google_docs_date_range_start.dateTime().toPyDateTime(), \
                self.google_docs_date_range_end.dateTime().toPyDateTime()
 
     def google_docs_start(self):
-        self.configs["google_docs_start_date_calendar"] = str(self.google_docs_media_date_ranges()[0])
-        self.configs["google_docs_end_date_calendar"] = str(self.google_docs_media_date_ranges()[1])
+        self.configs["google_docs_start_date_calendar"] = str(self.get_google_docs_date_ranges()[0])
+        self.configs["google_docs_end_date_calendar"] = str(self.get_google_docs_date_ranges()[1])
         self.configs["google_docs_custom_text"] = self.get_google_docs_custom_text()
         self.update_configs_file()
+        #events = self.get_json_events_from_url_docs()
+        events = self.get_json_events_from_file()
+        #write_to_google_docs('/Users/macbook/Downloads/ss.json', self.fileId , events)
+        #write_to_google_calendar(events)
+        self.populate_google_docs_table(self.google_docs_posted_feeds_table, events)
+        self.populate_google_calendar_table(self.google_cal_posted_feeds_table, events)
 
     def get_google_creds_file(self):
         options = QFileDialog.Options()
@@ -1243,19 +1326,46 @@ class Ui_MainWindow(QWidget):
             self.set_social_media_checkboxes()
             self.set_social_media_custom_text()
             self.set_post_in_social_media()
+            self.set_social_media_dates()
         elif tab_index == 1:
             self.set_google_docs_custom_text()
+            self.set_range_dates()
+            events = self.get_json_events_from_file()
+            #self.populate_google_docs_table(self.google_docs_posted_feeds_table, events)
+            #self.populate_google_calendar_table(self.google_cal_posted_feeds_table, events)
         elif tab_index == 3:
             self.set_accounts_tab()
-            print(self.get_social_media_date_ranges()[0])
-            print(datetime.strptime("2021-12-31T18:00:00Z", "%Y-%m-%dT%H:%M:%SZ"))
-            print(self.get_social_media_date_ranges()[0] <= datetime.strptime("2021-12-31T18:00:00Z", "%Y-%m-%dT%H:%M:%SZ") <= self.get_social_media_date_ranges()[1])
         else:
-            events_to_post = self.get_timed_events_to_post()
-            pprint(events_to_post)
+            events_to_post = self.get_json_events_from_file()
             if events_to_post:
                 self.populate_table(self.pending_posts_table, events_to_post)
 
+    def set_social_media_dates(self):
+        self.social_media_date_range_start.setDateTime(datetime.strptime(self.configs["social_media_start_date_calendar"], '%Y-%m-%d %H:%M:%S.%f'))
+        self.social_media_date_range_end.setDateTime(
+            datetime.strptime(self.configs["social_media_end_date_calendar"], '%Y-%m-%d %H:%M:%S.%f'))
+
+    def post_events(self):
+        d = get_driver()
+        log_in_to_facebook(d,self.configs["facebook_email"],self.configs["facebook_password"])
+        log_in_to_twitter(d, self.configs["twitter_email"], self.configs["twitter_password"])
+        log_in_to_linkedin(d, self.configs["linkedin_email"], self.configs["linked_password"])
+        events = self.get_json_events_from_file()
+        for event in events:
+            social_media = event["post_destination"]
+            posting_date = datetime.strptime(event["posting_date"], "%m/%d/%Y %H:%M")
+            if posting_date <= datetime.now():
+                if "FB" in social_media:
+                    post_to_facebook(d,event["event"])
+                if "TW" in social_media:
+                    post_to_twitter(d, event["event"])
+                if "LI" in social_media:
+                    post_to_linkedin(d, event["event"])
+            #if one of these functions fail, the post goes to failed posts
+            #failed_posts.append(event)
+            #done_posts.append(event)
+        #self.populate_table(self.failed_posts_table, events)
+        #self.populate_table(self.done_posts_table, events)
 
     def retranslateUi(self, MainWindow):
         self.get_configs()
@@ -1276,7 +1386,7 @@ class Ui_MainWindow(QWidget):
         social_media_cancel_button.clicked.connect(lambda: QCoreApplication.quit())
         social_media_save_button.clicked.connect(self.social_media_save)
         google_docs_start_button = self.google_docs_button_box.button(QDialogButtonBox.Ok)
-        google_docs_cancel_button = self.google_docs_button_box.button(QDialogButtonBox.Ok)
+        google_docs_cancel_button = self.google_docs_button_box.button(QDialogButtonBox.Cancel)
         google_docs_cancel_button.clicked.connect(lambda: QCoreApplication.quit())
         google_docs_start_button.clicked.connect(self.google_docs_start)
         accounts_save_button = self.accounts_button_box.button(QDialogButtonBox.Save)
@@ -1291,7 +1401,7 @@ class Ui_MainWindow(QWidget):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.label_11.setText(_translate("MainWindow", "From (JSON SOURCE URL)"))
-        self.update_json_source_urls()
+        self.json_source_url_combobox.addItems(self.configs["json_urls"])
         self.new_json_url_button.setText(_translate("MainWindow", "New"))
         self.label.setText(_translate("MainWindow", "Social Media Custom Text"))
         self.label_4.setText(_translate("MainWindow", "Include Json Parameters"))
