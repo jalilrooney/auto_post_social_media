@@ -96,8 +96,8 @@ def write_to_google_docs(json_creads_dir, fileId, events):
             'endOfSegmentLocation': {
                 'segmentId': '',
             },
-            'text': "\n++title++++bold++SUMMARY OF SEPTEMBER 2021 WEBINARS\n\n" + short_events_text + '++new page++'
-                    + "\n++title++++bold++FULL DESCRIPTIONS OF SEPTEMBER 2021 WEBINARS & SPEAKER BIOS\n\n" + full_events_text
+            'text': "\n++title++++bold++SUMMARY OF WEBINARS\n\n" + short_events_text + '++new page++'
+                    + "\n++title++++bold++FULL DESCRIPTIONS OF WEBINARS & SPEAKER BIOS\n\n" + full_events_text
         },
     }]
     resp = service.documents().batchUpdate(

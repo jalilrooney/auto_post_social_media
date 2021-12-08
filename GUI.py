@@ -1011,8 +1011,8 @@ class Ui_MainWindow(QWidget):
         post_before = self.get_post_before_date()
         timed_events = [
             {
-                "posting_date": (datetime.now()
-                                 + relativedelta(
+                "posting_date": (datetime.strptime(event['startTime'], "%Y-%m-%dT%H:%M:%SZ")
+                                 - relativedelta(
                             days=post_before["days"],
                             months=post_before["months"],
                             weeks=post_before["weeks"],
@@ -1269,9 +1269,9 @@ class Ui_MainWindow(QWidget):
         self.configs["google_docs_custom_text"] = self.get_google_docs_custom_text()
         self.update_configs_file()
         #events = self.get_json_events_from_url_docs()
-        events = self.get_json_events_from_file()
-        #write_to_google_docs('/Users/macbook/Downloads/ss.json', self.fileId , events)
-        #write_to_google_calendar(events)
+        events = get_needed_data_from_json()
+        write_to_google_docs('/Users/macbook/Downloads/ss.json', self.fileId , events)
+        # write_to_google_calendar(events)
         self.populate_google_docs_table(self.google_docs_posted_feeds_table, events)
         self.populate_google_calendar_table(self.google_cal_posted_feeds_table, events)
 
@@ -1356,7 +1356,7 @@ class Ui_MainWindow(QWidget):
             posting_date = datetime.strptime(event["posting_date"], "%m/%d/%Y %H:%M")
             if posting_date <= datetime.now():
                 if "FB" in social_media:
-                    post_to_facebook(d,event["event"])
+                    post_to_facebook(d, event["event"])
                 if "TW" in social_media:
                     post_to_twitter(d, event["event"])
                 if "LI" in social_media:
